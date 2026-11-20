@@ -4,13 +4,13 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 
 from shadow_remover import prepare_reference, remove_shadows, draw_without_shadows
+from threshold import unimodal_threshold, hysteresis_mask, HIGH_FACTOR
 
 VIDEO = "test_videos/busStation.avi"
 SHAKE = False
 MAX_SHAKE = 20 # Works only if SHAKE = True
 MIN_PEAK = 0.15
 MIN_GAIN = 1.3
-THRESHOLD = 30
 MIN_AREA = 100
 MIN_STATIC_FRAME = 25
 EVIDENCE_DECAY = 3
@@ -224,7 +224,8 @@ def run():
         patch = crop(frame, roi)
         L = to_luminance(patch)
         diff = difference_image(L, reference)
-        diff_mask = threshold_mask(diff, THRESHOLD)
+        low = unimodal_threshold(diff)
+        diff_mask = hysteresis_mask(diff, low, HIGH_FACTOR * low)
         diff_mask, shadow = remove_shadows(diff_mask, patch, L, shadow_ref)
         no_shadows = draw_without_shadows(patch, ref_patch, shadow)
         moving_mask = mog_mask(mog, L)
@@ -254,7 +255,7 @@ def run():
         if key == ord('q'):
             break
         if key == ord('h'):
-            print_histogram(diff, THRESHOLD)
+            print_histogram(diff, low)
 
 
     capture.release()
