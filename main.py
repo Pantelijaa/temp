@@ -3,7 +3,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 
-VIDEO = "test_videos/LeftBag.mpg"
+from shadow_remover import prepare_reference, remove_shadows
+
+VIDEO = "test_videos/LeftBox.mpg"
 SHAKE = True
 MAX_SHAKE = 20 # Works only if SHAKE = True
 MIN_PEAK = 0.15
@@ -200,13 +202,17 @@ def run():
         frame = shift_frame(frame, sx, sy)
 
         if reference is None:
-            reference = to_luminance(crop(frame, roi))
+            ref_patch = crop(frame, roi)
+            reference = to_luminance(ref_patch)
             window = hanning_window(reference.shape)
+            shadow_ref = prepare_reference(ref_patch, reference)
 
         roi, peak = track_roi(reference, frame, roi, window)
-        L = to_luminance(crop(frame, roi))
+        patch = crop(frame, roi)
+        L = to_luminance(patch)
         diff = difference_image(L, reference)
         diff_mask = threshold_mask(diff, THRESHOLD)
+        diff_mask, shadow = remove_shadows(diff_mask, patch, L, shadow_ref)
         moving_mask = mog_mask(mog, L)
         static = static_mask(diff_mask, moving_mask)
         cleaned = cleanup(static)
@@ -222,11 +228,12 @@ def run():
         cv2.imshow("L", draw_hull(L, hull))
         cv2.imshow("diff mask", diff_mask)
         cv2.imshow("moving mask", moving_mask)
+        cv2.imshow("shadow", shadow)
         cv2.imshow("static_mask", static)
         cv2.imshow("cleaned", cleaned)
         cv2.imshow("object", blob)
 
-        key = cv2.waitKey(30) & 0xFF
+        key = cv2.waitKey(20) & 0xFF
         if key == ord('q'):
             break
         if key == ord('h'):
