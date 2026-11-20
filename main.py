@@ -3,10 +3,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 
-from shadow_remover import prepare_reference, remove_shadows
+from shadow_remover import prepare_reference, remove_shadows, draw_without_shadows
 
-VIDEO = "test_videos/LeftBox.mpg"
-SHAKE = True
+VIDEO = "test_videos/busStation.avi"
+SHAKE = False
 MAX_SHAKE = 20 # Works only if SHAKE = True
 MIN_PEAK = 0.15
 MIN_GAIN = 1.3
@@ -202,7 +202,7 @@ def run():
         frame = shift_frame(frame, sx, sy)
 
         if reference is None:
-            ref_patch = crop(frame, roi)
+            ref_patch = crop(frame, roi).copy()
             reference = to_luminance(ref_patch)
             window = hanning_window(reference.shape)
             shadow_ref = prepare_reference(ref_patch, reference)
@@ -213,6 +213,7 @@ def run():
         diff = difference_image(L, reference)
         diff_mask = threshold_mask(diff, THRESHOLD)
         diff_mask, shadow = remove_shadows(diff_mask, patch, L, shadow_ref)
+        no_shadows = draw_without_shadows(patch, ref_patch, shadow)
         moving_mask = mog_mask(mog, L)
         static = static_mask(diff_mask, moving_mask)
         cleaned = cleanup(static)
@@ -226,6 +227,7 @@ def run():
         draw_roi(frame, roi)
         cv2.imshow("frame", frame)
         cv2.imshow("L", draw_hull(L, hull))
+        cv2.imshow("no shadows", no_shadows)
         cv2.imshow("diff mask", diff_mask)
         cv2.imshow("moving mask", moving_mask)
         cv2.imshow("shadow", shadow)
