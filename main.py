@@ -12,6 +12,8 @@ MIN_PEAK = 0.15
 MIN_GAIN = 1.3
 THRESHOLD = 30
 MIN_AREA = 100
+MIN_STATIC_FRAME = 25
+EVIDENCE_DECAY = 3
 
 #################################################################
 
@@ -157,6 +159,16 @@ def largest_blob(mask, min_area):
 
     return (labels == biggest).astype("uint8") * 255
 
+#################################################################################
+
+def update_evidence(evidence, static):
+    evidence += np.where(static > 0, 1, -EVIDENCE_DECAY).astype("int16")
+    np.clip(evidence, 0, 2 * MIN_STATIC_FRAME, out=evidence)
+    return evidence
+
+def persistent_mask(evidence, static):
+    return ((evidence >= MIN_STATIC_FRAME) & (static > 0)).astype("uint8") * 255
+
 ##################################################################
 
 def convex_hull(blob):
@@ -204,6 +216,7 @@ def run():
         if reference is None:
             ref_patch = crop(frame, roi).copy()
             reference = to_luminance(ref_patch)
+            evidence = np.zeros(reference.shape, "int16")
             window = hanning_window(reference.shape)
             shadow_ref = prepare_reference(ref_patch, reference)
 
@@ -216,6 +229,8 @@ def run():
         no_shadows = draw_without_shadows(patch, ref_patch, shadow)
         moving_mask = mog_mask(mog, L)
         static = static_mask(diff_mask, moving_mask)
+        evidence = update_evidence(evidence, static)
+        static = persistent_mask(evidence, static)
         cleaned = cleanup(static)
         blob = largest_blob(cleaned, MIN_AREA)
         hull = convex_hull(blob)
