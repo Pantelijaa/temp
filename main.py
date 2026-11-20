@@ -6,9 +6,11 @@ from matplotlib.patches import Patch
 from shadow_remover import prepare_reference, remove_shadows, draw_without_shadows
 from threshold import unimodal_threshold, hysteresis_mask
 
+#VIDEO = "test_videos/LeftBag.mpg"
+#VIDEO = "test_videos/LeftBox.mpg"
 VIDEO = "test_videos/busStation.avi"
-SHAKE = False
-MAX_SHAKE = 20 # Works only if SHAKE = True
+SHAKE = True
+MAX_SHAKE = 8 # Works only if SHAKE = True
 MIN_PEAK = 0.15
 MIN_GAIN = 1.3
 MIN_AREA = 100
@@ -162,8 +164,8 @@ def largest_blob(mask, min_area):
 #################################################################################
 
 def update_evidence(evidence, static):
-    evidence += np.where(static > 0, 1, -EVIDENCE_DECAY).astype("int16")
-    np.clip(evidence, 0, 2 * MIN_STATIC_FRAME, out=evidence)
+    evidence += np.where(static > 0, 2, -EVIDENCE_DECAY).astype("int16")
+    np.clip(evidence, 0, 1 * MIN_STATIC_FRAME, out=evidence)
     return evidence
 
 def persistent_mask(evidence, static):
@@ -184,6 +186,19 @@ def draw_hull(L, hull):
     return view
 
 ################################################################
+
+def anchor_box(frame_shape, margin):
+    H, W = frame_shape[:2]
+    return margin, margin, W - 2 * margin, H - 2 * margin
+
+def follow_anchor(start, anchor_start, anchor, frame_shape):
+    x, y, w, h = start
+    dx = anchor[0] - anchor_start[0]
+    dy = anchor[1] - anchor_start[1]
+    return clamp_roi((x + dx, y + dy, w, h), frame_shape)
+
+
+##############################################################
 
 def crop(frame, roi):
     x, y, w, h = roi
@@ -217,10 +232,14 @@ def run():
             ref_patch = crop(frame, roi).copy()
             reference = to_luminance(ref_patch)
             evidence = np.zeros(reference.shape, "int16")
-            window = hanning_window(reference.shape)
+            anchor_start = anchor_box(frame.shape, MAX_SHAKE)
+            anchor = anchor_start
+            anchor_reference = to_luminance(crop(frame, anchor))
+            window = hanning_window(anchor_reference.shape)
             shadow_ref = prepare_reference(ref_patch, reference)
 
-        roi, peak = track_roi(reference, frame, roi, window)
+        anchor, peak = track_roi(anchor_reference, frame, anchor, window)
+        roi = follow_anchor(start, anchor_start, anchor, frame.shape)
         patch = crop(frame, roi)
         L = to_luminance(patch)
         diff = difference_image(L, reference)
