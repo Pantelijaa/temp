@@ -12,7 +12,8 @@ def unimodal_threshold(diff):
     distance = heights[0] * (end - position) - (end - peak) * heights
     return float(edges[position[np.argmax(distance)]])
 
-def hysteresis_mask(diff, low, high):
+def hysteresis_mask(diff, low):
+    high = low * HIGH_FACTOR
     weak = (diff > low).astype("uint8")
     count, labels = cv2.connectedComponents(weak)
     keep = np.bincount(labels[diff > high], minlength=count) > 0

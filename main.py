@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 
 from shadow_remover import prepare_reference, remove_shadows, draw_without_shadows
-from threshold import unimodal_threshold, hysteresis_mask, HIGH_FACTOR
+from threshold import unimodal_threshold, hysteresis_mask
 
 VIDEO = "test_videos/busStation.avi"
 SHAKE = False
@@ -225,7 +225,7 @@ def run():
         L = to_luminance(patch)
         diff = difference_image(L, reference)
         low = unimodal_threshold(diff)
-        diff_mask = hysteresis_mask(diff, low, HIGH_FACTOR * low)
+        diff_mask = hysteresis_mask(diff, low)
         diff_mask, shadow = remove_shadows(diff_mask, patch, L, shadow_ref)
         no_shadows = draw_without_shadows(patch, ref_patch, shadow)
         moving_mask = mog_mask(mog, L)
