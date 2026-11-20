@@ -12,7 +12,7 @@ from objects import largest_blob, convex_hull, draw_hull
 
 #VIDEO = "test_videos/LeftBag.mpg"
 #VIDEO = "test_videos/LeftBox.mpg"
-#VIDEO = "test_videos/busStation.avi"
+VIDEO = "test_videos/busStation.avi"
 SHAKE = True
 MAX_SHAKE = 8 # Largest simulated shake, also the margin around the anchor box
 
