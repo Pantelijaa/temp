@@ -68,3 +68,8 @@ def shake_offsets(max_shake, seed=42):
 def no_shake():
     while True:
         yield 0, 0
+
+def print_tracking_error(roi, start, shake, peak):
+    error = (roi[0] - start[0] - shake[0], roi[1] - start[1] - shake[1])
+    if error != (0, 0):
+        print("off by", error, "peak", round(peak, 2))

@@ -15,11 +15,14 @@ def to_luminance(img):
     lab_img = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
     return lab_img[:, :, 0].astype("float32")
 
-def select_roi(capture):
-    ok, first = capture.read()
-    roi = cv2.selectROI("ROI", first)
-    cv2.destroyWindow("ROI")
+def first_frame(capture):
+    ok, frame = capture.read()
     capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
+    return frame
+
+def select_roi(frame):
+    roi = cv2.selectROI("ROI", frame)
+    cv2.destroyWindow("ROI")
     return roi
 
 def draw_roi(frame, roi):

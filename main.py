@@ -1,9 +1,9 @@
 import cv2
 import numpy as np
 
-from video import select_roi, draw_roi, crop, read_frames, to_luminance
+from video import first_frame, select_roi, draw_roi, crop, read_frames, to_luminance
 from tracking import hanning_window, track_roi, anchor_box, follow_anchor
-from tracking import shift_frame, shake_offsets, no_shake
+from tracking import shift_frame, shake_offsets, no_shake, print_tracking_error
 from threshold import unimodal_threshold, hysteresis_mask, plot_histogram
 from shadow_remover import prepare_reference, remove_shadows, draw_without_shadows
 from masks import difference_image, create_mog, mog_mask, static_mask
@@ -12,35 +12,34 @@ from objects import largest_blob, convex_hull, draw_hull
 
 #VIDEO = "test_videos/LeftBag.mpg"
 #VIDEO = "test_videos/LeftBox.mpg"
-VIDEO = "test_videos/busStation.avi"
+#VIDEO = "test_videos/busStation.avi"
 SHAKE = True
 MAX_SHAKE = 8 # Largest simulated shake, also the margin around the anchor box
 
 def run():
     capture = cv2.VideoCapture(VIDEO)
-    roi = select_roi(capture)
-    start = roi
-    reference = None
-    window = None
+    first = first_frame(capture)
+    start = select_roi(first)
+
+    ref_patch = crop(first, start)
+    reference = to_luminance(ref_patch)
+    shadow_ref = prepare_reference(ref_patch, reference)
+    evidence = np.zeros(reference.shape, "int16")
     mog = create_mog()
+
+    anchor_start = anchor_box(first.shape, MAX_SHAKE)
+    anchor = anchor_start
+    anchor_reference = to_luminance(crop(first, anchor))
+    window = hanning_window(anchor_reference.shape)
 
     offsets = shake_offsets(MAX_SHAKE) if SHAKE else no_shake()
 
-    for frame, (sx, sy) in zip(read_frames(capture), offsets):
-        frame = shift_frame(frame, sx, sy)
-
-        if reference is None:
-            ref_patch = crop(frame, roi).copy()
-            reference = to_luminance(ref_patch)
-            evidence = np.zeros(reference.shape, "int16")
-            anchor_start = anchor_box(frame.shape, MAX_SHAKE)
-            anchor = anchor_start
-            anchor_reference = to_luminance(crop(frame, anchor))
-            window = hanning_window(anchor_reference.shape)
-            shadow_ref = prepare_reference(ref_patch, reference)
-
+    for frame, shake in zip(read_frames(capture), offsets):
+        frame = shift_frame(frame, *shake)
         anchor, peak = track_roi(anchor_reference, frame, anchor, window)
         roi = follow_anchor(start, anchor_start, anchor, frame.shape)
+        print_tracking_error(roi, start, shake, peak)
+
         patch = crop(frame, roi)
         L = to_luminance(patch)
         diff = difference_image(L, reference)
@@ -55,10 +54,6 @@ def run():
         cleaned = cleanup(static)
         blob = largest_blob(cleaned)
         hull = convex_hull(blob)
-
-        error = (roi[0] - (start[0] + sx), roi[1] - (start[1] + sy))
-        if error != (0, 0):
-            print("off by", error, "peak", round(peak, 2))
 
         draw_roi(frame, roi)
         cv2.imshow("frame", frame)
@@ -76,7 +71,6 @@ def run():
             break
         if key == ord('h'):
             plot_histogram(diff, low)
-
 
     capture.release()
     cv2.destroyAllWindows()
